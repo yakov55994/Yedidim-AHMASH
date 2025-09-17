@@ -451,6 +451,39 @@ const byId = (id) => document.getElementById(id);
 // מילים להסרה בסוף שם (אם מסומן)
 const REGION_WORDS = new Set(["דרום", "צפון", "מרכז", "ירושלים", "שפלה", "גליל", "נגב", "שרון", "גוש דן", "שומרון"]);
 
+function normalizeNameBase(str) {
+  // מסיר רווחים כפולים, גרשיים/מירכאות, מפרידי סוף, ומשאיר עברית/מספרים/רווחים
+  str = str
+    .replace(/[\"'״׳]/g, ' ')
+    .replace(/[ ,;:|]+$/,'')
+    .replace(/[\t\u00A0\s]+/g, ' ')
+    .trim();
+  return str;
+}
+
+// מחזיר שם מנורמל (כולל הסרת אזור אם נדרש)
+function normalizeName(str, { stripRegion=false } = {}) {
+  let name = normalizeNameBase(str);
+  if (!name) return '';
+  if (stripRegion) {
+    name = stripTrailingRegions(name);
+  }
+  // מסיר רווחים כפולים שנית לאחר הסרת אזור
+  name = name.replace(/\s+/g, ' ').trim();
+  return name;
+}
+
+// מחזיר גם מפתח הפוך (לשני רכיבים) בנוסף למפתח המקורי
+function makeNameKeys(name) {
+  const tokens = name.split(' ').filter(Boolean);
+  const keys = [name];
+  if (tokens.length === 2) {
+    const rev = `${tokens[1]} ${tokens[0]}`;
+    if (rev !== name) keys.push(rev);
+  }
+  return keys;
+}
+
 function normalizeWhitespace(str) {
   return str.replace(/[\t\u00A0\s]+/g, ' ').trim();
 }
@@ -466,24 +499,21 @@ function stripTrailingRegions(name) {
 // פרסר לרשימה 2: שם + כמות
 function parseCheckList(text, { stripRegion }) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const map = new Map(); // name -> total number
+  const map = new Map(); // nameKey -> total number
 
   for (const raw of lines) {
     const m = raw.match(/(-?\d+)\s*$/);
     if (!m) continue; // אין מספר בסוף → מדלגים
     const num = parseInt(m[1], 10);
+
     let name = raw.slice(0, raw.length - m[0].length);
-    name = normalizeWhitespace(name.replace(/[ ,;:|]+$/,''));
-    if (stripRegion) {
-      name = stripTrailingRegions(name);
-    }
+    name = normalizeName(name, { stripRegion });
     if (!name) continue;
 
-    // סיכום כמויות עבור אותו שם
-    if (map.has(name)) {
-      map.set(name, map.get(name) + num);
-    } else {
-      map.set(name, num);
+    // הוספת הכמות גם למפתח המקורי וגם למפתח ההפוך (אם רלוונטי)
+    const keys = makeNameKeys(name);
+    for (const key of keys) {
+      map.set(key, (map.get(key) || 0) + num);
     }
   }
   return map;
@@ -494,9 +524,9 @@ function parseNames(text) {
   const set = new Set();
   const lines = text.split(/\r?\n/);
   for (let line of lines) {
-    line = normalizeWhitespace(line);
-    if (!line) continue;
-    set.add(line);
+    const name = normalizeName(line, { stripRegion: false }); // בדרך כלל אין אזור ברשימה 1
+    if (!name) continue;
+    set.add(name);
   }
   return Array.from(set);
 }
