@@ -376,6 +376,10 @@
       background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
     }
 
+    .reset-zone { margin-top: 12px; border-style: dashed; background: transparent; }
+    .reset-zone b { color: var(--ink); }
+    .board-head + .notice, .notice + .notice { margin: 0 0 14px; }
+
     /* ---------- managers view ---------- */
     .mgr-list { list-style: none; padding: 0; margin: 0; max-width: 760px; display: grid; gap: 10px; }
     .mgr-list li { display: flex; gap: 10px; align-items: center; }
@@ -636,6 +640,14 @@
           <input type="file" id="importFile" accept="application/json" hidden />
         </div>
       </div>
+
+      <div class="roster-foot reset-zone">
+        <span><b>איפוס.</b> מוחק לכל האחמ״שים ואי אפשר לבטל, אלא אם ייצאתם גיבוי.</span>
+        <div class="row">
+          <button class="btn small danger" id="resetMarks"><i class="ph ph-eraser"></i>הסר את כל הסימונים</button>
+          <button class="btn small danger" id="resetRoster"><i class="ph ph-trash"></i>מחק את כל המוקדנים</button>
+        </div>
+      </div>
     </section>
 
     <!-- ================= אחמ"שים ================= -->
@@ -643,6 +655,7 @@
       <h2>האחמ"שים</h2>
       <p class="lede">המוקדנים מתחת לסף מתחלקים שווה בשווה ביניהם. מוקדן נשאר אצל אותו אחמ"ש משבוע לשבוע כשאפשר, ואחמ"ש לא מקבל את עצמו.</p>
       <p class="roles-note">ליד כל אחמ"ש בוחרים את מי הוא מקבל. משתלמים ומתלמדים הולכים רק למי שמסומן "משתלמים ומתלמדים", תיכונים רק למי שמסומן "תיכונים", וכל השאר מתחלקים בין מי שמסומן "שאר המוקדנים". אם אין אף אחמ"ש לסוג מסוים, המוקדנים האלה הולכים לאחמ"שים של שאר המוקדנים.</p>
+      <div id="mgrGaps" style="max-width:760px;margin-bottom:18px"></div>
       <ul class="mgr-list" id="mgrList"></ul>
       <div class="row" style="margin-top:16px">
         <button class="btn" id="addMgr"><i class="ph ph-plus"></i>הוסף אחמ"ש</button>
@@ -782,6 +795,14 @@
     return strip(t[0]) + '|' + strip(t[t.length - 1]);
   }
 
+  function fuzzyKeys(name) {
+    const t = tokens(name);
+    if (t.length < 2) return [];
+    const strip = (w) => w.replace(/[יוא]/g, '');
+    const a = strip(t[0]), b = strip(t[t.length - 1]);
+    return [a + '|' + b, b + '|' + a];
+  }
+
   function parseReport(text) {
     const map = new Map();   // key -> {calls, raw}
     const order = [];
@@ -812,21 +833,34 @@
 
     const { map, entries } = parseReport(state.report);
     const matched = new Set();
+    // התאמה רופפת: שם פרטי ושם משפחה בלי י/ו/א ובלי שמות אמצעיים (קופמן / קאופמן, נעם דוד שמידט / נועם שמידט)
+    // אותו אדם יכול להופיע בדוח פעמיים בכתיב שונה, ואז השיחות מתחברות
+    const loose = new Map();
+    entries.forEach(e => fuzzyKeys(e.raw).forEach(k => { const l = loose.get(k) || new Set(); l.add(e); loose.set(k, l); }));
+    const rosterFuzzy = new Map();
+    state.roster.forEach(p => fuzzyKeys(p.name).forEach(k => rosterFuzzy.set(k, (rosterFuzzy.get(k) || 0) + 1)));
+    const findHit = (p) => {
+      const hits = new Set();
+      keysFor(p.name).forEach(k => map.get(k) && hits.add(map.get(k)));
+      fuzzyKeys(p.name).filter(k => rosterFuzzy.get(k) === 1)
+        .forEach(k => (loose.get(k) || []).forEach(e => !matched.has(e) && hits.add(e)));
+      if (!hits.size) return null;
+      hits.forEach(e => matched.add(e));
+      return { calls: [...hits].reduce((n, e) => n + e.calls, 0) };
+    };
     const group = state.group || 'all';
     const guides = state.guides || 'with';
     const inGroup = (p) => (group === 'all' || (group === 'teen' ? !!p.teen : !p.teen))
       && (guides === 'with' || !p.guide);
     const rows = state.roster.filter(inGroup).map(p => {
-      const hit = keysFor(p.name).map(k => map.get(k)).find(Boolean);
-      if (hit) matched.add(hit);
+      const hit = findHit(p);
       return { id: p.id, calls: hit ? hit.calls : 0, inReport: !!hit };
     });
     // שמות שתואמים למוקדן שנשאר מחוץ לקבוצה אינם "לא מוכרים"
-    state.roster.filter(p => !inGroup(p)).forEach(p => {
-      const hit = keysFor(p.name).map(k => map.get(k)).find(Boolean);
-      if (hit) matched.add(hit);
-    });
-    const unknown = entries.filter(e => !matched.has(e)).map(e => ({ name: e.raw, calls: e.calls }));
+    state.roster.filter(p => !inGroup(p)).forEach(findHit);
+    // האחמ"שים עצמם מופיעים בדוח, אבל הם לא "שמות לא מוכרים"
+    const mgrKeys = new Set(state.managers.map(m => looseKey(m.name)));
+    const unknown = entries.filter(e => !matched.has(e) && !mgrKeys.has(looseKey(e.raw))).map(e => ({ name: e.raw, calls: e.calls }));
     const low = rows.filter(r => r.calls < threshold).sort((a, b) => a.calls - b.calls);
     return { threshold, group, guides, rows, unknown, low };
   }
@@ -900,6 +934,31 @@
     Object.assign(state.memory, board);
     return board;
   }
+
+  // מחשב מחדש את החלוקה הקיימת בלי הודעות (אחרי שינוי תפקיד, סימון או קובץ חדש).
+  // מוקדנים נשארים אצל מי שהיו כשאפשר, כולל העברות ידניות.
+  function refreshWeek() {
+    if (!state.week || !state.report.trim() || !state.managers.length) return false;
+    if (flat) { runList(); return true; }
+    runWeek();
+    return true;
+  }
+
+  // אחמ"ש עם תפקיד שאין לו אף מוקדן מתאים ברשימה: מסבירים למה הוא ריק
+  function roleGaps() {
+    const gaps = [];
+    for (const kind of ['trainees', 'teen']) {
+      const mgrs = state.managers.filter(m => roleOf(m) === kind);
+      if (mgrs.length && !state.roster.some(p => kindOf(p) === kind)) gaps.push({ kind, mgrs });
+    }
+    return gaps;
+  }
+  const GAP_TEXT = {
+    trainees: 'אף מוקדן לא מסומן משתלם או מתלמד',
+    teen: 'אף מוקדן לא מסומן תיכונים'
+  };
+  const gapsHtml = () => roleGaps().map(g =>
+    `<div class="notice">${GAP_TEXT[g.kind]}, ולכן ${g.mgrs.map(m => esc(m.name)).join(' ו')} לא ${g.mgrs.length > 1 ? 'מקבלים' : 'מקבל/ת'} אף אחד. מסמנים אותם בלשונית מוקדנים בכפתור ${g.kind === 'teen' ? 'התיכונים' : 'הכובע'} ליד השם.</div>`).join('');
 
   function moveTo(rosterId, managerId) {
     state.week.board[rosterId] = managerId;
@@ -1004,6 +1063,7 @@
     if (w.unknown.length) {
       html += `<details class="notice">
         <summary>${w.unknown.length} שמות בדוח לא נמצאו ברשימת המוקדנים</summary>
+        <button class="btn small" data-add-all-unknown style="margin-top:8px"><i class="ph ph-list-plus"></i>הוסף את כולם לרשימה</button>
         <ul>${w.unknown.map((u, i) => `<li><span>${esc(u.name)} <span class="num">(${u.calls})</span></span>
           <button class="btn small" data-add-unknown="${i}"><i class="ph ph-plus"></i>הוסף לרשימה</button></li>`).join('')}</ul>
       </details>`;
@@ -1048,10 +1108,12 @@
           <div class="meta" style="margin-top:2px">אפשר להעביר מוקדן לאחמ"ש אחר מתוך הרשימה.</div>
         </div>
         <div class="row">
+          <button class="btn quiet danger" id="resetWeek"><i class="ph ph-arrow-counter-clockwise"></i>אפס חלוקה</button>
           <button class="btn quiet" id="reshuffle"><i class="ph ph-shuffle"></i>חלק מחדש</button>
           <button class="btn" id="copyAll"><i class="ph ph-copy"></i>העתק את כל החלוקה</button>
         </div>
       </div>
+      ${gapsHtml()}
       <div class="board">${lanes}</div>`;
   }
 
@@ -1112,6 +1174,7 @@
   }
 
   function renderManagers() {
+    byId('mgrGaps').innerHTML = gapsHtml();
     byId('mgrList').innerHTML = state.managers.map((m, i) => `<li>
         <span class="idx">${i + 1}</span>
         <input type="text" value="${esc(m.name)}" data-mgr="${m.id}" aria-label="שם אחמ&quot;ש ${i + 1}" />
@@ -1296,13 +1359,14 @@
       const text = r.list.map(p => `${p.name}\t${p.calls}`).join('\n');
       byId('report').value = text;
       state.report = text;
-      save();
+      // הקובץ מעדכן הכול: סינון, סיכום וחלוקה
+      if (flat) runList(); else if (state.managers.length) runWeek(); else save();
       const total = r.list.reduce((s, p) => s + p.calls, 0);
       const range = r.end ? ` מ${fmtShort(r.start)} עד ${fmtShort(r.end)}` : '';
       const skipped = r.noCols.length ? ` הקובץ ${r.noCols.join(', ')} לא נקרא, אין בו עמודת שם.` : '';
       const noWeek = r.onlyAggregated ? ' אין בקובץ תאריכים, אז נספר כל מה שבו.' : '';
-      say(`${REGION}${range}: ${total} שיחות של ${r.list.length} מוקדנים נכנסו לדוח. עכשיו לוחצים "סנן וחלק".${noWeek}${skipped}`);
-      toast('הדוח מולא מהקובץ');
+      say(`${REGION}${range}: ${total} שיחות של ${r.list.length} מוקדנים נכנסו לדוח, והחלוקה עודכנה.${noWeek}${skipped}`);
+      toast('הדוח והחלוקה עודכנו מהקובץ');
     } catch (e) {
       say(e.message === 'xlsx' ? 'לא הצלחתי לטעון את קורא האקסל. בודקים את החיבור לאינטרנט ומנסים שוב.' : 'לא הצלחתי לקרוא את הקובץ. אם זה CSV, כדאי לשמור אותו כאקסל ולנסות שוב.', true);
     } finally {
@@ -1347,6 +1411,13 @@
     if (t.id === 'reshuffle') { runWeek({ fresh: true }); toast('החלוקה בוצעה מחדש'); }
     if (t.id === 'copyAll') copy(state.managers.map(m => messageFor(m.id)).join('\n\n----------\n\n'), 'כל החלוקה הועתקה');
     if (t.dataset.copy) copy(messageFor(t.dataset.copy), `ההודעה ל${managerName(t.dataset.copy)} הועתקה`);
+    if (t.hasAttribute('data-add-all-unknown')) {
+      const w = flat || state.week;
+      const { added } = addNames(w.unknown.map(u => u.name));
+      toast(`נוספו ${added} מוקדנים לרשימה`);
+      flat ? runList() : runWeek();
+    }
+    if (t.id === 'resetWeek') resetWeek();
     if (t.dataset.addUnknown !== undefined) {
       const u = (flat || state.week).unknown[+t.dataset.addUnknown];
       if (addNames([u.name]).added) { toast(`${u.name} נוסף/ה לרשימה`); flat ? runList() : runWeek(); }
@@ -1380,24 +1451,24 @@
     if (!t) return;
     if (t.dataset.edit) { editingId = t.dataset.edit; renderRoster(); }
     if (t.hasAttribute('data-cancel')) { editingId = null; renderRoster(); }
-    if (t.dataset.teen) { const p = personOf(t.dataset.teen); p.teen = !p.teen; save(); render(); }
+    if (t.dataset.teen) { const p = personOf(t.dataset.teen); p.teen = !p.teen; save(); refreshWeek(); render(); }
     if (t.dataset.track) {
       const p = personOf(t.dataset.track);
       const next = TRACK_NEXT[p.track || ''];
       if (next) p.track = next; else delete p.track;
-      save(); render();
+      save(); refreshWeek(); render();
     }
     if (t.dataset.guide) {
       const p = personOf(t.dataset.guide);
       const next = GUIDE_NEXT[p.guide || ''];
       if (next) p.guide = next; else delete p.guide;
-      save(); render();
+      save(); refreshWeek(); render();
     }
     if (t.dataset.del) {
       const p = personOf(t.dataset.del);
       state.roster = state.roster.filter(x => x.id !== p.id);
       delete state.memory[p.id];
-      save(); render();
+      save(); refreshWeek(); render();
       toast(`${p.name} נמחק/ה מהרשימה`);
     }
   });
@@ -1416,7 +1487,12 @@
   byId('mgrList').addEventListener('change', (e) => {
     if (e.target.dataset.role) {
       const r = state.managers.find(x => x.id === e.target.dataset.role);
-      if (r) { r.role = e.target.value; save(); toast(`${r.name} יקבל/ת עכשיו: ${ROLES[r.role]}. כדאי ללחוץ "סנן וחלק" שוב`); }
+      if (r) {
+        r.role = e.target.value; save();
+        const redone = refreshWeek();
+        renderManagers();
+        toast(`${r.name} יקבל/ת עכשיו: ${ROLES[r.role]}${redone ? '. החלוקה עודכנה' : ''}`);
+      }
       return;
     }
     const m = state.managers.find(x => x.id === e.target.dataset.mgr);
@@ -1428,13 +1504,32 @@
     const m = state.managers.find(x => x.id === t.dataset.delMgr);
     state.managers = state.managers.filter(x => x !== m);
     save(); render();
-    toast(`${m.name} הוסר/ה. כדאי ללחוץ "סנן וחלק" שוב`);
+    const redone = refreshWeek();
+    toast(`${m.name} הוסר/ה${redone ? '. החלוקה עודכנה' : ''}`);
   });
   byId('addMgr').addEventListener('click', () => {
     state.managers.push({ id: uid(), name: 'אחמ"ש חדש' });
     save(); render();
     const inputs = byId('mgrList').querySelectorAll('input');
     inputs[inputs.length - 1].select();
+  });
+
+  // ================= איפוס =================
+  function resetWeek() {
+    if (!confirm('לאפס את החלוקה? כל האחמ"שים יראו חלוקה ריקה, והזיכרון של מי היה אצל מי יימחק. רשימת המוקדנים והאחמ"שים נשארת.')) return;
+    state.week = null; state.memory = {}; state.report = ''; flat = null;
+    byId('report').value = ''; byId('fileStatus').hidden = true;
+    save(); render(); toast('החלוקה אופסה');
+  }
+  byId('resetRoster').addEventListener('click', () => {
+    if (!confirm(`למחוק את כל ${state.roster.length} המוקדנים מהרשימה? גם החלוקה תתאפס. כדאי לייצא גיבוי לפני. האחמ"שים נשארים.`)) return;
+    state.roster = []; state.week = null; state.memory = {}; flat = null;
+    save(); render(); toast('רשימת המוקדנים נמחקה. מוסיפים מחדש למעלה');
+  });
+  byId('resetMarks').addEventListener('click', () => {
+    if (!confirm('להסיר את כל הסימונים (תיכונים, משתלם, מתלמד, מדריך) מכל המוקדנים? השמות נשארים.')) return;
+    state.roster.forEach(p => { p.teen = false; delete p.track; delete p.guide; });
+    save(); refreshWeek(); render(); toast('כל הסימונים הוסרו');
   });
 
   // גיבוי
