@@ -210,6 +210,7 @@
       min-height: 40px; padding: 0 8px; border-radius: 6px;
       font-size: 14px; font-weight: 500; color: var(--ink-2); cursor: pointer; text-align: center;
     }
+    .group.two { grid-template-columns: repeat(2, 1fr); }
     .group input { position: absolute; opacity: 0; pointer-events: none; }
     .group input:checked + span { color: var(--ink); font-weight: 700; }
     .group label:has(input:checked) { background: var(--surface); box-shadow: var(--shadow); }
@@ -264,6 +265,24 @@
     }
     .empty i { font-size: 28px; color: var(--ink-2); flex: none; }
 
+    /* גרירת קבצי דוח */
+    .drop {
+      display: flex; align-items: center; gap: 14px;
+      margin: 0 0 8px; padding: 16px 18px;
+      border: 1.5px dashed var(--line); border-radius: var(--r);
+      cursor: pointer; color: var(--ink-2);
+      transition: border-color .15s, background .15s;
+    }
+    .drop:hover { border-color: var(--ink-2); }
+    .drop:has(+ input:focus-visible) { outline: 2px solid var(--signal); outline-offset: 2px; }
+    .drop.over { border-style: solid; border-color: var(--signal); background: var(--signal-soft); color: var(--signal-ink); }
+    .drop.busy { opacity: .6; pointer-events: none; }
+    .drop > i { font-size: 32px; flex: none; }
+    .drop b { display: block; color: var(--ink); font-weight: 600; }
+    .drop small { display: block; font-size: 14px; color: var(--muted); margin-top: 2px; }
+    .file-status { margin: 0 0 22px; font-size: 14px; color: var(--ink-2); }
+    .file-status.err { color: var(--danger); }
+
     .board-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 48px 0 18px; flex-wrap: wrap; }
     .board-head h2 { margin: 0; }
     .board {
@@ -304,6 +323,8 @@
       font-size: 12px; color: var(--muted); margin-inline-start: 6px; font-weight: 500;
       border: 1px solid var(--line); border-radius: 99px; padding: 0 7px; white-space: nowrap;
     }
+    .tag.track { color: var(--ink-2); border-color: var(--ink-2); }
+    .tag.guide { color: var(--signal-ink); background: var(--signal-soft); border-color: transparent; }
     .calls { font-weight: 700; font-variant-numeric: tabular-nums; }
     .calls.zero {
       font-size: 12px; font-weight: 600; color: var(--signal-ink);
@@ -334,8 +355,9 @@
     details.bulk textarea { min-height: 150px; margin: 10px 0; }
     .roster {
       list-style: none; margin: 0; padding: 0;
-      columns: 3 280px; column-gap: 40px;
+      columns: 3 340px; column-gap: 40px;
     }
+    .roster .acts .btn.icon { width: 30px; height: 32px; font-size: 15px; }
     .roster li {
       break-inside: avoid;
       display: flex; align-items: center; gap: 6px;
@@ -355,7 +377,7 @@
     }
 
     /* ---------- managers view ---------- */
-    .mgr-list { list-style: none; padding: 0; margin: 0; max-width: 560px; display: grid; gap: 10px; }
+    .mgr-list { list-style: none; padding: 0; margin: 0; max-width: 760px; display: grid; gap: 10px; }
     .mgr-list li { display: flex; gap: 10px; align-items: center; }
     .mgr-list .idx {
       flex: none; width: 30px; height: 30px; border-radius: 50%;
@@ -363,7 +385,22 @@
       background: var(--signal-soft); color: var(--signal-ink);
       font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums;
     }
-    .mgr-list input { height: 48px; }
+    .mgr-list input { height: 48px; flex: 1; min-width: 0; }
+    .mgr-list select {
+      height: 48px; flex: none; width: 230px; padding: 0 12px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface); color: var(--ink); font: inherit; font-size: 15px;
+    }
+    .roles-note { margin: 0 0 22px; color: var(--ink-2); max-width: 64ch; }
+    .roster-filter { margin-top: 12px; }
+    .roster-filter select {
+      height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface); color: var(--ink); font: inherit; font-size: 15px;
+    }
+    @media (max-width: 640px) {
+      .mgr-list li { flex-wrap: wrap; }
+      .mgr-list select { width: 100%; order: 3; }
+    }
 
     /* ---------- toast ---------- */
     .toast {
@@ -513,7 +550,16 @@
       <div class="intake">
         <div>
           <h2>דוח השיחות של השבוע</h2>
-          <p class="lede">מדביקים את הדוח כמו שהוא. בכל שורה שם ומספר שיחות.</p>
+          <p class="lede">מדביקים את הדוח כמו שהוא. בכל שורה שם ומספר שיחות. אפשר גם לגרור קובץ מהמערכת.</p>
+          <label class="drop" id="drop" for="reportFiles">
+            <i class="ph ph-file-xls"></i>
+            <span>
+              <b>גוררים לכאן קובץ אחד או שניים, או לוחצים לבחירה</b>
+              <small>אקסל או CSV. נשארות רק השורות של דרום, מתחילת השבוע ועד השעה האחרונה בקובץ, והסיכום נכנס לדוח.</small>
+            </span>
+          </label>
+          <input type="file" id="reportFiles" accept=".xlsx,.xls,.csv" multiple style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
+          <p class="file-status" id="fileStatus" role="status" hidden></p>
           <label class="lbl" for="report">דוח שיחות</label>
           <textarea id="report" placeholder="ישראל ישראלי	52&#10;רחל לוי	18&#10;..."></textarea>
           <div class="help">מילים כמו "דרום" או "תיכונים" בסוף השם לא מפריעות להתאמה.</div>
@@ -530,6 +576,11 @@
             <label><input type="radio" name="group" value="teen" /><span>רק תיכונים</span></label>
             <label><input type="radio" name="group" value="adult" /><span>בלי תיכונים</span></label>
           </div>
+          <div class="lbl" id="guidesLbl">מדריכים</div>
+          <div class="group two" role="radiogroup" aria-labelledby="guidesLbl">
+            <label><input type="radio" name="guides" value="with" /><span>עם מדריכים</span></label>
+            <label><input type="radio" name="guides" value="without" /><span>בלי מדריכים</span></label>
+          </div>
           <div class="row">
             <button class="btn primary" id="runBtn"><i class="ph ph-funnel"></i>סנן וחלק</button>
             <button class="btn quiet" id="clearReport">נקה דוח</button>
@@ -545,7 +596,7 @@
     <!-- ================= מוקדנים ================= -->
     <section id="view-roster" hidden>
       <h2>כל המוקדנים</h2>
-      <p class="lede">הרשימה נשמרת. מי שברשימה ולא מופיע בדוח השבועי נספר כ-0 שיחות.</p>
+      <p class="lede">הרשימה נשמרת. מי שברשימה ולא מופיע בדוח השבועי נספר כ-0 שיחות. הכפתורים ליד כל שם מסמנים תיכונים, משתלם או מתלמד, ומדריך.</p>
 
       <div class="tools">
         <div>
@@ -556,13 +607,22 @@
           </form>
           <details class="bulk">
             <summary>הוספה של כמה שמות יחד</summary>
-            <textarea id="bulkNames" placeholder="שם בכל שורה. אפשר להדביק גם דוח עם מספרים, המספרים יוסרו."></textarea>
+            <textarea id="bulkNames" placeholder="שם בכל שורה. אפשר להדביק גם דוח עם מספרים, המספרים יוסרו.&#10;&#10;כותרת כמו &quot;משתלמים:&quot;, &quot;מתלמדים:&quot; או &quot;תיכונים:&quot; מסמנת את כל השמות שאחריה.&#10;&quot;- מדריך&quot; אחרי שם מסמן מדריך.&#10;שם שכבר ברשימה לא יוכפל, רק יקבל את הסימון."></textarea>
             <button class="btn" id="bulkAdd"><i class="ph ph-list-plus"></i>הוסף את כולם</button>
           </details>
         </div>
         <div>
           <label class="lbl" for="search">חיפוש</label>
           <input type="search" id="search" placeholder="הקלד שם..." autocomplete="off" />
+          <div class="roster-filter">
+            <select id="rosterFilter" aria-label="הצג רק">
+              <option value="">כל המוקדנים</option>
+              <option value="mishtalem">רק משתלמים</option>
+              <option value="mitlamed">רק מתלמדים</option>
+              <option value="guide">רק מדריכים</option>
+              <option value="teen">רק תיכונים</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -582,6 +642,7 @@
     <section id="view-managers" hidden>
       <h2>האחמ"שים</h2>
       <p class="lede">המוקדנים מתחת לסף מתחלקים שווה בשווה ביניהם. מוקדן נשאר אצל אותו אחמ"ש משבוע לשבוע כשאפשר, ואחמ"ש לא מקבל את עצמו.</p>
+      <p class="roles-note">ליד כל אחמ"ש בוחרים את מי הוא מקבל. משתלמים ומתלמדים הולכים רק למי שמסומן "משתלמים ומתלמדים", תיכונים רק למי שמסומן "תיכונים", וכל השאר מתחלקים בין מי שמסומן "שאר המוקדנים". אם אין אף אחמ"ש לסוג מסוים, המוקדנים האלה הולכים לאחמ"שים של שאר המוקדנים.</p>
       <ul class="mgr-list" id="mgrList"></ul>
       <div class="row" style="margin-top:16px">
         <button class="btn" id="addMgr"><i class="ph ph-plus"></i>הוסף אחמ"ש</button>
@@ -675,19 +736,34 @@
 
   const clean = (s) => s.replace(/[‎‏]/g, '').replace(/[\t \s]+/g, ' ').trim();
 
+  // "- מדריך" / "-מדריכה" בסוף שם
+  const GUIDE_RE = /\s*[-־–]?\s*(מדריכה|מדריך)\s*$/;
+  const TRACK_WORDS = { 'משתלם': 'mishtalem', 'משתלמת': 'mishtalem', 'מתלמד': 'mitlamed', 'מתלמדת': 'mitlamed' };
+  // כותרות בהוספה מרובה: כל השמות אחריהן מקבלים את הסימון
+  const SECTIONS = { 'משתלמים': 'mishtalem', 'מתלמדים': 'mitlamed', 'תיכונים': 'teen', 'רגילים': null };
+
   function parseRosterLine(line) {
-    let name = clean(line.replace(/-?\d+\s*$/, ''));
+    let s = clean(line.replace(/-?\d+\s*$/, '')).replace(/[,.]+$/, '').trim();
+    let guide = false;
+    const g = s.match(GUIDE_RE);
+    if (g && g.index > 0) { guide = g[1] === 'מדריכה' ? 'f' : 'm'; s = s.slice(0, g.index); }
+    const name = clean(s);
     if (!name) return null;
     const parts = name.split(' ');
-    let teen = false;
-    while (parts.length > 1 && TRAILING_TAGS.has(parts[parts.length - 1])) {
-      if (parts.pop() === 'תיכונים') teen = true;
+    let teen = false, track = null;
+    while (parts.length > 1 && (TRAILING_TAGS.has(parts[parts.length - 1]) || TRACK_WORDS[parts[parts.length - 1]])) {
+      const w = parts.pop();
+      if (w === 'תיכונים') teen = true;
+      if (TRACK_WORDS[w]) track = TRACK_WORDS[w];
     }
-    return { id: uid(), name: parts.join(' '), teen };
+    const p = { id: uid(), name: parts.join(' '), teen };
+    if (track) p.track = track;
+    if (guide) p.guide = guide;
+    return p;
   }
 
   function tokens(name) {
-    let t = clean(name).replace(/["״׳'`]/g, '').split(' ').filter(Boolean);
+    let t = clean(name).replace(GUIDE_RE, '').replace(/[-־]/g, ' ').replace(/["״׳'`]/g, '').split(' ').filter(Boolean);
     while (t.length > 1 && TRAILING_TAGS.has(t[t.length - 1])) t.pop();
     while (t.length > 1 && LEADING_TITLES.has(t[0])) t.shift();
     return t;
@@ -737,7 +813,9 @@
     const { map, entries } = parseReport(state.report);
     const matched = new Set();
     const group = state.group || 'all';
-    const inGroup = (p) => group === 'all' || (group === 'teen' ? !!p.teen : !p.teen);
+    const guides = state.guides || 'with';
+    const inGroup = (p) => (group === 'all' || (group === 'teen' ? !!p.teen : !p.teen))
+      && (guides === 'with' || !p.guide);
     const rows = state.roster.filter(inGroup).map(p => {
       const hit = keysFor(p.name).map(k => map.get(k)).find(Boolean);
       if (hit) matched.add(hit);
@@ -750,7 +828,7 @@
     });
     const unknown = entries.filter(e => !matched.has(e)).map(e => ({ name: e.raw, calls: e.calls }));
     const low = rows.filter(r => r.calls < threshold).sort((a, b) => a.calls - b.calls);
-    return { threshold, group, rows, unknown, low };
+    return { threshold, group, guides, rows, unknown, low };
   }
 
   // רשימה בלי חלוקה: נשארת רק אצלך ולא נשמרת, כדי לא לדרוס את החלוקה המשותפת
@@ -768,38 +846,56 @@
     if (!state.managers.length) { toast('אין אחמ"שים. מוסיפים אותם בלשונית אחמ"שים'); return; }
     const scan = scanReport();
     if (!scan) return;
-    const { threshold, group, rows, unknown, low } = scan;
+    const { threshold, group, guides, rows, unknown, low } = scan;
     flat = null;
     const board = distribute(low, fresh);
-    state.week = { at: Date.now(), threshold, group, rows, board, unknown };
+    state.week = { at: Date.now(), threshold, group, guides, rows, board, unknown };
     save();
     render();
   }
 
+  // לכל מוקדן יש סוג, ולכל אחמ"ש תפקיד שקובע איזה סוג הוא מקבל
+  const ROLES = { general: 'שאר המוקדנים', trainees: 'משתלמים ומתלמדים', teen: 'תיכונים' };
+  const roleOf = (m) => ROLES[m.role] ? m.role : 'general';
+  const kindOf = (p) => (p && p.track) ? 'trainees' : (p && p.teen) ? 'teen' : 'general';
+  function poolFor(kind) {
+    const withRole = (r) => state.managers.filter(m => roleOf(m) === r);
+    if (withRole(kind).length) return withRole(kind);
+    if (withRole('general').length) return withRole('general');
+    return state.managers;
+  }
+
   function distribute(low, fresh) {
-    const mgrs = state.managers;
-    const cap = Math.ceil(low.length / mgrs.length);
-    const load = Object.fromEntries(mgrs.map(m => [m.id, 0]));
-    const sum = Object.fromEntries(mgrs.map(m => [m.id, 0]));
     const selfOf = {};
     const rosterLoose = new Map(state.roster.map(p => [looseKey(p.name), p.id]));
-    mgrs.forEach(m => { const rid = rosterLoose.get(looseKey(m.name)); if (rid) selfOf[rid] = m.id; });
-
+    state.managers.forEach(m => { const rid = rosterLoose.get(looseKey(m.name)); if (rid) selfOf[rid] = m.id; });
     const board = {};
-    const give = (r, mid) => { board[r.id] = mid; load[mid]++; sum[mid] += r.calls; };
 
-    // 1. המשכיות: מוקדן נשאר אצל האחמ"ש מהפעם הקודמת
-    const rest = [];
-    for (const r of low) {
-      const prev = !fresh && state.memory[r.id];
-      if (prev && load[prev] !== undefined && selfOf[r.id] !== prev && load[prev] < cap) give(r, prev);
-      else rest.push(r);
-    }
-    // 2. השאר: למי שיש הכי מעט, ובשוויון למי שקיבל פחות "קשים"
-    for (const r of rest) {
-      const options = mgrs.filter(m => selfOf[r.id] !== m.id);
-      options.sort((a, b) => load[a.id] - load[b.id] || sum[a.id] - sum[b.id]);
-      give(r, options[0].id);
+    // כל סוג מתחלק בנפרד, רק בין האחמ"שים שלו
+    for (const kind of Object.keys(ROLES)) {
+      const items = low.filter(r => kindOf(personOf(r.id)) === kind);
+      if (!items.length) continue;
+      const mgrs = poolFor(kind);
+      const cap = Math.ceil(items.length / mgrs.length);
+      const load = Object.fromEntries(mgrs.map(m => [m.id, 0]));
+      const sum = Object.fromEntries(mgrs.map(m => [m.id, 0]));
+      const give = (r, mid) => { board[r.id] = mid; load[mid] = (load[mid] || 0) + 1; sum[mid] = (sum[mid] || 0) + r.calls; };
+
+      // 1. המשכיות: מוקדן נשאר אצל האחמ"ש מהפעם הקודמת, אם הוא עדיין מהקבוצה הנכונה
+      const rest = [];
+      for (const r of items) {
+        const prev = !fresh && state.memory[r.id];
+        if (prev && load[prev] !== undefined && selfOf[r.id] !== prev && load[prev] < cap) give(r, prev);
+        else rest.push(r);
+      }
+      // 2. השאר: למי שיש הכי מעט, ובשוויון למי שקיבל פחות "קשים"
+      for (const r of rest) {
+        let options = mgrs.filter(m => selfOf[r.id] !== m.id);
+        if (!options.length) options = state.managers.filter(m => selfOf[r.id] !== m.id);
+        if (!options.length) options = mgrs;
+        options.sort((a, b) => (load[a.id] || 0) - (load[b.id] || 0) || (sum[a.id] || 0) - (sum[b.id] || 0));
+        give(r, options[0].id);
+      }
     }
     Object.assign(state.memory, board);
     return board;
@@ -846,21 +942,37 @@
       .sort((a, b) => a.calls - b.calls);
   }
 
-  const GROUP_NOTE = { teen: ' (רק תיכונים)', adult: ' (בלי תיכונים)' };
-  const groupNote = (w) => GROUP_NOTE[w && w.group] || '';
+  const GROUP_NOTE = { teen: 'רק תיכונים', adult: 'בלי תיכונים' };
+  const groupNote = (w) => {
+    if (!w) return '';
+    const notes = [GROUP_NOTE[w.group], w.guides === 'without' ? 'בלי מדריכים' : ''].filter(Boolean);
+    return notes.length ? ` (${notes.join(', ')})` : '';
+  };
+
+  const TRACK_LABEL = { mishtalem: 'משתלם', mitlamed: 'מתלמד' };
+  const tagWords = (p) => [
+    p.teen && 'תיכונים',
+    TRACK_LABEL[p.track],
+    p.guide && (p.guide === 'f' ? 'מדריכה' : 'מדריך')
+  ].filter(Boolean);
+  const tagsHtml = (p) =>
+    (p.teen ? '<span class="tag">תיכונים</span>' : '') +
+    (TRACK_LABEL[p.track] ? `<span class="tag track">${TRACK_LABEL[p.track]}</span>` : '') +
+    (p.guide ? `<span class="tag guide">${p.guide === 'f' ? 'מדריכה' : 'מדריך'}</span>` : '');
+  const tagsText = (p) => { const w = tagWords(p); return w.length ? ` (${w.join(', ')})` : ''; };
 
   function flatItems() {
     return flat.low.filter(r => personOf(r.id)).map(r => ({ ...r, person: personOf(r.id) }));
   }
   function flatMessage() {
-    const lines = flatItems().map((r, i) => `${i + 1}. ${r.person.name}: ${r.inReport ? r.calls + ' שיחות' : 'לא הופיע בדוח'}`);
+    const lines = flatItems().map((r, i) => `${i + 1}. ${r.person.name}${tagsText(r.person)}: ${r.inReport ? r.calls + ' שיחות' : 'לא הופיע בדוח'}`);
     return `מוקדנים עם פחות מ-${flat.threshold} שיחות${groupNote(flat)} (${lines.length}):\n\n${lines.join('\n')}`;
   }
 
   function messageFor(mid) {
     const items = laneItems(mid);
     const t = state.week.threshold;
-    const lines = items.map((r, i) => `${i + 1}. ${r.person.name}: ${r.inReport ? r.calls + ' שיחות' : 'לא הופיע בדוח'}`);
+    const lines = items.map((r, i) => `${i + 1}. ${r.person.name}${tagsText(r.person)}: ${r.inReport ? r.calls + ' שיחות' : 'לא הופיע בדוח'}`);
     return `היי ${managerName(mid)},\nאלה המוקדנים שלך השבוע, כולם עם פחות מ-${t} שיחות${groupNote(state.week)}:\n\n${lines.join('\n')}\n\nכדאי ליצור קשר עם כל אחד מהם השבוע, לשאול מה שלומו ולעזור לו להגיע ליותר שיחות. תודה!`;
   }
 
@@ -869,6 +981,7 @@
     byId('rosterCount').textContent = state.roster.length;
     byId('threshold').value = state.threshold;
     document.querySelectorAll('input[name="group"]').forEach(r => r.checked = r.value === (state.group || 'all'));
+    document.querySelectorAll('input[name="guides"]').forEach(r => r.checked = r.value === (state.guides || 'with'));
     if (document.activeElement !== byId('report')) byId('report').value = state.report;
     renderSummary();
     renderBoard();
@@ -912,7 +1025,7 @@
       const items = laneItems(m.id);
       const list = items.length
         ? `<ol>${items.map(r => `<li>
-              <span class="who">${esc(r.person.name)}${r.person.teen ? '<span class="tag">תיכונים</span>' : ''}</span>
+              <span class="who">${esc(r.person.name)}${tagsHtml(r.person)}</span>
               ${r.inReport ? `<span class="calls">${r.calls}</span>` : `<span class="calls zero">לא בדוח</span>`}
               <select class="move" data-move="${r.id}" aria-label="העבר את ${esc(r.person.name)} לאחמ&quot;ש אחר">
                 <option disabled selected>העבר אל...</option>${opts(m.id)}
@@ -946,7 +1059,7 @@
     const items = flatItems();
     const list = items.length
       ? `<ol>${items.map(r => `<li>
-            <span class="who">${esc(r.person.name)}${r.person.teen ? '<span class="tag">תיכונים</span>' : ''}</span>
+            <span class="who">${esc(r.person.name)}${tagsHtml(r.person)}</span>
             ${r.inReport ? `<span class="calls">${r.calls}</span>` : `<span class="calls zero">לא בדוח</span>`}
           </li>`).join('')}</ol>`
       : `<div class="lane-empty">אין מוקדנים מתחת ל-${flat.threshold} שיחות.</div>`;
@@ -964,11 +1077,19 @@
       <div class="flat">${list}</div>`;
   }
 
+  // כפתורים שעוברים בין מצבים: הטקסט מתאר מה יקרה בלחיצה
+  const TRACK_NEXT = { '': 'mishtalem', mishtalem: 'mitlamed', mitlamed: '' };
+  const TRACK_TIP = { '': 'סמן כמשתלם', mishtalem: 'שנה למתלמד', mitlamed: 'הסר סימון משתלם/מתלמד' };
+  const GUIDE_NEXT = { '': 'm', m: 'f', f: '' };
+  const GUIDE_TIP = { '': 'סמן כמדריך', m: 'שנה למדריכה', f: 'הסר סימון מדריך' };
+
   let editingId = null;
   function renderRoster() {
     const q = clean(byId('search').value);
+    const rf = byId('rosterFilter').value;
+    const match = (p) => !rf || (rf === 'teen' ? p.teen : rf === 'guide' ? p.guide : p.track === rf);
     const list = state.roster
-      .filter(p => !q || p.name.includes(q))
+      .filter(p => (!q || p.name.includes(q)) && match(p))
       .sort((a, b) => a.name.localeCompare(b.name, 'he'));
     byId('roster').innerHTML = list.length ? list.map(p => p.id === editingId
       ? `<li><form class="add-row" style="flex:1" data-edit-form="${p.id}">
@@ -976,14 +1097,16 @@
             <button class="btn small" type="submit">שמור</button>
             <button class="btn small quiet" type="button" data-cancel>ביטול</button></form></li>`
       : `<li>
-          <span class="who">${esc(p.name)}${p.teen ? '<span class="tag">תיכונים</span>' : ''}</span>
+          <span class="who">${esc(p.name)}${tagsHtml(p)}</span>
           <span class="acts">
+            <button class="btn small icon quiet" data-track="${p.id}" title="${TRACK_TIP[p.track || '']}" aria-label="${TRACK_TIP[p.track || '']}: ${esc(p.name)}"><i class="ph ph-graduation-cap"></i></button>
+            <button class="btn small icon quiet" data-guide="${p.id}" title="${GUIDE_TIP[p.guide || '']}" aria-label="${GUIDE_TIP[p.guide || '']}: ${esc(p.name)}"><i class="ph ph-chalkboard-teacher"></i></button>
             <button class="btn small icon quiet" data-teen="${p.id}" title="${p.teen ? 'הסר סימון תיכונים' : 'סמן כתיכונים'}" aria-label="סימון תיכונים"><i class="ph ph-student"></i></button>
             <button class="btn small icon quiet" data-edit="${p.id}" title="עריכה" aria-label="ערוך את ${esc(p.name)}"><i class="ph ph-pencil-simple"></i></button>
             <button class="btn small icon quiet danger" data-del="${p.id}" title="מחיקה" aria-label="מחק את ${esc(p.name)}"><i class="ph ph-trash"></i></button>
           </span>
         </li>`).join('')
-      : `<li style="border:0;color:var(--muted)">${q ? 'לא נמצא מוקדן בשם הזה.' : 'הרשימה ריקה. מוסיפים מוקדנים למעלה.'}</li>`;
+      : `<li style="border:0;color:var(--muted)">${q ? 'לא נמצא מוקדן בשם הזה.' : rf ? 'אין מוקדנים עם הסימון הזה.' : 'הרשימה ריקה. מוסיפים מוקדנים למעלה.'}</li>`;
     const f = document.querySelector('[data-edit-form] input');
     if (f) { f.focus(); f.select(); }
   }
@@ -992,23 +1115,212 @@
     byId('mgrList').innerHTML = state.managers.map((m, i) => `<li>
         <span class="idx">${i + 1}</span>
         <input type="text" value="${esc(m.name)}" data-mgr="${m.id}" aria-label="שם אחמ&quot;ש ${i + 1}" />
+        <select data-role="${m.id}" aria-label="מי ${esc(m.name)} מקבל">
+          ${Object.entries(ROLES).map(([k, v]) => `<option value="${k}" ${roleOf(m) === k ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
         <button class="btn icon quiet danger" data-del-mgr="${m.id}" aria-label="הסר את ${esc(m.name)}" title="הסר"><i class="ph ph-trash"></i></button>
       </li>`).join('');
   }
 
   // ================= פעולות =================
+  // מוסיף שמות חדשים. שם שכבר קיים לא מוכפל, רק מקבל את הסימונים מהשורה
   function addNames(lines) {
-    const existing = new Set(state.roster.flatMap(p => keysFor(p.name)));
-    let added = 0;
+    const byKey = new Map();
+    state.roster.forEach(p => keysFor(p.name).forEach(k => byKey.set(k, p)));
+    let added = 0, updated = 0, section;
     for (const line of lines) {
+      const head = clean(line).replace(/[:：]\s*$/, '');
+      if (head in SECTIONS) { section = SECTIONS[head]; continue; }
       const p = parseRosterLine(line);
-      if (!p || existing.has(keysFor(p.name)[0])) continue;
+      if (!p) continue;
+      if (section === 'teen') p.teen = true;
+      else if (section) p.track = section;
+      const cur = keysFor(p.name).map(k => byKey.get(k)).find(Boolean);
+      if (cur) {
+        const before = tagWords(cur).join();
+        if (p.teen) cur.teen = true;
+        if (p.track) cur.track = p.track;
+        if (p.guide) cur.guide = p.guide;
+        if (tagWords(cur).join() !== before) updated++;
+        continue;
+      }
       state.roster.push(p);
-      keysFor(p.name).forEach(k => existing.add(k));
+      keysFor(p.name).forEach(k => byKey.set(k, p));
       added++;
     }
     save();
-    return added;
+    return { added, updated };
+  }
+
+  // ================= קבצי דוח (אקסל / CSV) =================
+  // קורא קובץ אחד או יותר, משאיר רק שורות של דרום, סופר מתחילת השבוע (יום ראשון 00:00)
+  // ועד הרגע האחרון שמופיע בקבצים, וכותב לתיבת הדוח "שם<TAB>מספר".
+  const REGION = 'דרום';
+  let xlsxReady;
+  function loadXlsx() {
+    if (window.XLSX) return Promise.resolve();
+    return xlsxReady ||= new Promise((ok, fail) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = ok;
+      s.onerror = () => { xlsxReady = null; fail(new Error('xlsx')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  const cellText = (v) => v == null ? '' : v instanceof Date ? '' : clean(String(v));
+  const H = {
+    region: /מוקד|אזור|איזור|מחוז|סניף|מרחב|region/i,
+    first: /שם פרטי|first/i,
+    last: /שם משפחה|last/i,
+    name: /שם|מתנדב|מוקדן|כונן|name/i,
+    count: /שיחות|כמות|סה"?כ|מספר|count|total/i,
+    date: /תאריך|date|נוצר|פתיחה|קבלה|זמן/i,
+    time: /שעה|time/i
+  };
+
+  // מוצא את שורת הכותרות ואת העמודות לפי שמן
+  function findColumns(rows) {
+    for (let r = 0; r < Math.min(rows.length, 20); r++) {
+      const head = rows[r].map(cellText);
+      const idx = (re, not = []) => head.findIndex((h, i) => h && re.test(h) && !not.includes(i));
+      const region = idx(H.region);
+      const first = idx(H.first), last = idx(H.last);
+      const taken = [region, first, last].filter(i => i >= 0);
+      // עדיפות לכותרת שהיא בדיוק שם המתנדב / המוקדן
+      let name = head.findIndex((h, i) => /^(שם( ה)?(מתנדב|מוקדן|כונן)|שם מלא|שם)$/.test(h) && !taken.includes(i));
+      if (name < 0) name = idx(H.name, taken);
+      if (name < 0 && first < 0) continue;
+      const used = [...taken, name];
+      const date = idx(H.date, used);
+      const time = idx(H.time, [...used, date]);
+      const count = idx(H.count, [...used, date, time]);
+      return { headRow: r, region, first, last, name, date, time, count };
+    }
+    return null;
+  }
+
+  // תאריך: אובייקט Date, מספר סידורי של אקסל, או טקסט כמו 05/11/2026 14:32
+  function toDate(v) {
+    if (v instanceof Date) return isNaN(v) ? null : v;
+    if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Math.round((v - 25569) * 864e5) + new Date().getTimezoneOffset() * 6e4);
+    const s = cellText(v);
+    let m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) { const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return new Date(y, m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)); }
+    m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) return new Date(+m[1], m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+    return null;
+  }
+  function addTime(d, v) {
+    let h, mi;
+    if (v instanceof Date) { h = v.getHours(); mi = v.getMinutes(); }
+    else if (typeof v === 'number' && v >= 0 && v < 1) { const t = Math.round(v * 1440); h = Math.floor(t / 60); mi = t % 60; }
+    else { const m = cellText(v).match(/(\d{1,2}):(\d{2})/); if (!m) return d; h = +m[1]; mi = +m[2]; }
+    const out = new Date(d); out.setHours(h, mi, 0, 0); return out;
+  }
+  const weekStart = (d) => { const s = new Date(d); s.setHours(0, 0, 0, 0); s.setDate(s.getDate() - s.getDay()); return s; };
+
+  async function readReportFiles(files) {
+    await loadXlsx();
+    const recs = [];      // { name, calls, at, key }
+    let noCols = [], noRegion = 0;
+    for (const file of files) {
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+      let found = false;
+      for (const sn of wb.SheetNames) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: null });
+        const c = findColumns(rows);
+        if (!c) continue;
+        found = true;
+        for (const row of rows.slice(c.headRow + 1)) {
+          const name = c.name >= 0 ? cellText(row[c.name]) : clean(`${cellText(row[c.first])} ${cellText(row[c.last])}`);
+          if (!name || /^סה"?כ/.test(name)) continue;
+          // דרום: לפי עמודת המוקד, ואם אין כזו, לפי כל השורה (למשל "ישראל ישראלי דרום")
+          const south = c.region >= 0
+            ? cellText(row[c.region]).includes(REGION)
+            : row.some(v => cellText(v).includes(REGION));
+          if (c.region < 0 && !south) noRegion++;
+          if (!south) continue;
+          let at = c.date >= 0 ? toDate(row[c.date]) : null;
+          if (at && c.time >= 0) at = addTime(at, row[c.time]);
+          const n = c.count >= 0 ? parseInt(cellText(row[c.count]).replace(/[^\d]/g, ''), 10) : 1;
+          const calls = c.count >= 0 ? (Number.isFinite(n) ? n : 0) : 1;
+          // אותה שורה בשני קבצים (ייצוא חופף) נספרת פעם אחת
+          recs.push({ name, calls, at, key: row.map(v => v instanceof Date ? v.getTime() : String(v ?? '')).join('\u0001') });
+        }
+      }
+      if (!found) noCols.push(file.name);
+    }
+
+    const dated = recs.filter(r => r.at);
+    let end = null, start = null, inWeek = recs;
+    if (dated.length) {
+      end = new Date(Math.max(...dated.map(r => r.at)));
+      start = weekStart(end);
+      inWeek = recs.filter(r => !r.at || (r.at >= start && r.at <= end));
+    }
+    const seen = new Set();
+    const totals = new Map();
+    for (const r of inWeek) {
+      if (r.at && seen.has(r.key)) continue;
+      if (r.at) seen.add(r.key);
+      const keys = keysFor(r.name);
+      const t = keys.map(k => totals.get(k)).find(Boolean) || { name: tokens(r.name).join(' '), calls: 0 };
+      t.calls += r.calls;
+      keys.forEach(k => totals.set(k, t));
+    }
+    const list = [...new Set(totals.values())].sort((a, b) => b.calls - a.calls);
+    return { list, start, end, rows: inWeek.length, noCols, onlyAggregated: !dated.length };
+  }
+
+  const fmtShort = (d) => d.toLocaleString('he-IL', { weekday: 'long', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  async function handleReportFiles(fileList) {
+    const files = [...fileList].filter(f => /\.(xlsx|xls|csv)$/i.test(f.name));
+    const status = byId('fileStatus');
+    const say = (msg, err) => { status.hidden = false; status.textContent = msg; status.classList.toggle('err', !!err); };
+    if (!files.length) { say('צריך קובץ אקסל (xlsx, xls) או CSV.', true); return; }
+    const drop = byId('drop');
+    drop.classList.add('busy');
+    say(files.length > 1 ? `קורא ${files.length} קבצים...` : 'קורא את הקובץ...');
+    try {
+      const r = await readReportFiles(files);
+      if (r.noCols.length === files.length) {
+        say('לא מצאתי בקובץ עמודה של שם מוקדן. צריך שורת כותרות עם עמודה כמו "שם" או "שם מתנדב".', true);
+        return;
+      }
+      if (!r.list.length) {
+        say(r.end ? `אין שורות של ${REGION} השבוע (מ${fmtShort(r.start)} עד ${fmtShort(r.end)}).` : `אין בקובץ שורות של ${REGION}.`, true);
+        return;
+      }
+      const text = r.list.map(p => `${p.name}\t${p.calls}`).join('\n');
+      byId('report').value = text;
+      state.report = text;
+      save();
+      const total = r.list.reduce((s, p) => s + p.calls, 0);
+      const range = r.end ? ` מ${fmtShort(r.start)} עד ${fmtShort(r.end)}` : '';
+      const skipped = r.noCols.length ? ` הקובץ ${r.noCols.join(', ')} לא נקרא, אין בו עמודת שם.` : '';
+      const noWeek = r.onlyAggregated ? ' אין בקובץ תאריכים, אז נספר כל מה שבו.' : '';
+      say(`${REGION}${range}: ${total} שיחות של ${r.list.length} מוקדנים נכנסו לדוח. עכשיו לוחצים "סנן וחלק".${noWeek}${skipped}`);
+      toast('הדוח מולא מהקובץ');
+    } catch (e) {
+      say(e.message === 'xlsx' ? 'לא הצלחתי לטעון את קורא האקסל. בודקים את החיבור לאינטרנט ומנסים שוב.' : 'לא הצלחתי לקרוא את הקובץ. אם זה CSV, כדאי לשמור אותו כאקסל ולנסות שוב.', true);
+    } finally {
+      drop.classList.remove('busy');
+    }
+  }
+
+  byId('reportFiles').addEventListener('change', (e) => { handleReportFiles(e.target.files); e.target.value = ''; });
+  {
+    const drop = byId('drop');
+    let depth = 0;
+    drop.addEventListener('dragenter', (e) => { e.preventDefault(); depth++; drop.classList.add('over'); });
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    drop.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; drop.classList.remove('over'); } });
+    drop.addEventListener('drop', (e) => { e.preventDefault(); depth = 0; drop.classList.remove('over'); handleReportFiles(e.dataTransfer.files); });
+    // קובץ שנזרק לא במקום לא ייפתח בדפדפן במקום האפליקציה
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', (e) => e.preventDefault());
   }
 
   // ניווט
@@ -1021,6 +1333,7 @@
   byId('runBtn').addEventListener('click', () => runWeek());
   byId('listBtn').addEventListener('click', () => runList());
   document.querySelectorAll('input[name="group"]').forEach(r => r.addEventListener('change', () => { state.group = r.value; save(); }));
+  document.querySelectorAll('input[name="guides"]').forEach(r => r.addEventListener('change', () => { state.guides = r.value; save(); }));
   byId('clearReport').addEventListener('click', () => { byId('report').value = ''; state.report = ''; save(); byId('report').focus(); });
   byId('report').addEventListener('input', () => { state.report = byId('report').value; save(); });
   byId('threshold').addEventListener('change', () => { state.threshold = Math.max(1, parseInt(byId('threshold').value, 10) || 40); save(); });
@@ -1036,7 +1349,7 @@
     if (t.dataset.copy) copy(messageFor(t.dataset.copy), `ההודעה ל${managerName(t.dataset.copy)} הועתקה`);
     if (t.dataset.addUnknown !== undefined) {
       const u = (flat || state.week).unknown[+t.dataset.addUnknown];
-      if (addNames([u.name])) { toast(`${u.name} נוסף/ה לרשימה`); flat ? runList() : runWeek(); }
+      if (addNames([u.name]).added) { toast(`${u.name} נוסף/ה לרשימה`); flat ? runList() : runWeek(); }
     }
   });
   byId('view-week').addEventListener('change', (e) => {
@@ -1048,22 +1361,38 @@
     e.preventDefault();
     const v = byId('newName').value;
     if (!clean(v)) return;
-    if (addNames([v])) { toast('נוסף לרשימה'); byId('newName').value = ''; render(); }
+    const r = addNames([v]);
+    if (r.added) { toast('נוסף לרשימה'); byId('newName').value = ''; render(); }
+    else if (r.updated) { toast('המוקדן כבר ברשימה, הסימון עודכן'); byId('newName').value = ''; render(); }
     else toast('המוקדן כבר ברשימה');
   });
   byId('bulkAdd').addEventListener('click', () => {
-    const n = addNames(byId('bulkNames').value.split(/\r?\n/));
+    const { added, updated } = addNames(byId('bulkNames').value.split(/\r?\n/));
     byId('bulkNames').value = '';
-    toast(n ? `נוספו ${n} מוקדנים` : 'לא נוספו שמות חדשים');
+    const parts = [added && `נוספו ${added} מוקדנים`, updated && `${updated} קיימים קיבלו סימון`].filter(Boolean);
+    toast(parts.length ? parts.join(', ') : 'לא נוספו שמות חדשים');
     render();
   });
   byId('search').addEventListener('input', renderRoster);
+  byId('rosterFilter').addEventListener('change', renderRoster);
   byId('roster').addEventListener('click', (e) => {
     const t = e.target.closest('button');
     if (!t) return;
     if (t.dataset.edit) { editingId = t.dataset.edit; renderRoster(); }
     if (t.hasAttribute('data-cancel')) { editingId = null; renderRoster(); }
     if (t.dataset.teen) { const p = personOf(t.dataset.teen); p.teen = !p.teen; save(); render(); }
+    if (t.dataset.track) {
+      const p = personOf(t.dataset.track);
+      const next = TRACK_NEXT[p.track || ''];
+      if (next) p.track = next; else delete p.track;
+      save(); render();
+    }
+    if (t.dataset.guide) {
+      const p = personOf(t.dataset.guide);
+      const next = GUIDE_NEXT[p.guide || ''];
+      if (next) p.guide = next; else delete p.guide;
+      save(); render();
+    }
     if (t.dataset.del) {
       const p = personOf(t.dataset.del);
       state.roster = state.roster.filter(x => x.id !== p.id);
@@ -1085,6 +1414,11 @@
 
   // אחמ"שים
   byId('mgrList').addEventListener('change', (e) => {
+    if (e.target.dataset.role) {
+      const r = state.managers.find(x => x.id === e.target.dataset.role);
+      if (r) { r.role = e.target.value; save(); toast(`${r.name} יקבל/ת עכשיו: ${ROLES[r.role]}. כדאי ללחוץ "סנן וחלק" שוב`); }
+      return;
+    }
     const m = state.managers.find(x => x.id === e.target.dataset.mgr);
     if (m) { m.name = clean(e.target.value) || m.name; save(); render(); }
   });
