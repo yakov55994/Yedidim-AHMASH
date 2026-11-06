@@ -200,6 +200,20 @@
       width: 84px; height: 50px; padding: 0 8px;
       text-align: center; font-size: 24px; font-weight: 700;
     }
+    .group {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      margin: 0 0 18px; padding: 3px;
+      background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-sm);
+    }
+    .group label {
+      position: relative; display: grid; place-items: center;
+      min-height: 40px; padding: 0 8px; border-radius: 6px;
+      font-size: 14px; font-weight: 500; color: var(--ink-2); cursor: pointer; text-align: center;
+    }
+    .group input { position: absolute; opacity: 0; pointer-events: none; }
+    .group input:checked + span { color: var(--ink); font-weight: 700; }
+    .group label:has(input:checked) { background: var(--surface); box-shadow: var(--shadow); }
+    .group label:has(input:focus-visible) { outline: 2px solid var(--signal); outline-offset: 1px; }
     .panel .row .btn.primary { flex: 1; height: 54px; font-size: 18px; }
     .panel .list-only { width: 100%; margin-top: 10px; height: 46px; }
 
@@ -510,6 +524,12 @@
             <input type="number" id="threshold" min="1" class="num" />
             <span>שיחות</span>
           </div>
+          <div class="lbl" id="groupLbl">מי נכנס לסינון</div>
+          <div class="group" role="radiogroup" aria-labelledby="groupLbl">
+            <label><input type="radio" name="group" value="all" /><span>כולם</span></label>
+            <label><input type="radio" name="group" value="teen" /><span>רק תיכונים</span></label>
+            <label><input type="radio" name="group" value="adult" /><span>בלי תיכונים</span></label>
+          </div>
           <div class="row">
             <button class="btn primary" id="runBtn"><i class="ph ph-funnel"></i>סנן וחלק</button>
             <button class="btn quiet" id="clearReport">נקה דוח</button>
@@ -716,14 +736,21 @@
 
     const { map, entries } = parseReport(state.report);
     const matched = new Set();
-    const rows = state.roster.map(p => {
+    const group = state.group || 'all';
+    const inGroup = (p) => group === 'all' || (group === 'teen' ? !!p.teen : !p.teen);
+    const rows = state.roster.filter(inGroup).map(p => {
       const hit = keysFor(p.name).map(k => map.get(k)).find(Boolean);
       if (hit) matched.add(hit);
       return { id: p.id, calls: hit ? hit.calls : 0, inReport: !!hit };
     });
+    // שמות שתואמים למוקדן שנשאר מחוץ לקבוצה אינם "לא מוכרים"
+    state.roster.filter(p => !inGroup(p)).forEach(p => {
+      const hit = keysFor(p.name).map(k => map.get(k)).find(Boolean);
+      if (hit) matched.add(hit);
+    });
     const unknown = entries.filter(e => !matched.has(e)).map(e => ({ name: e.raw, calls: e.calls }));
     const low = rows.filter(r => r.calls < threshold).sort((a, b) => a.calls - b.calls);
-    return { threshold, rows, unknown, low };
+    return { threshold, group, rows, unknown, low };
   }
 
   // רשימה בלי חלוקה: נשארת רק אצלך ולא נשמרת, כדי לא לדרוס את החלוקה המשותפת
@@ -741,10 +768,10 @@
     if (!state.managers.length) { toast('אין אחמ"שים. מוסיפים אותם בלשונית אחמ"שים'); return; }
     const scan = scanReport();
     if (!scan) return;
-    const { threshold, rows, unknown, low } = scan;
+    const { threshold, group, rows, unknown, low } = scan;
     flat = null;
     const board = distribute(low, fresh);
-    state.week = { at: Date.now(), threshold, rows, board, unknown };
+    state.week = { at: Date.now(), threshold, group, rows, board, unknown };
     save();
     render();
   }
@@ -819,25 +846,29 @@
       .sort((a, b) => a.calls - b.calls);
   }
 
+  const GROUP_NOTE = { teen: ' (רק תיכונים)', adult: ' (בלי תיכונים)' };
+  const groupNote = (w) => GROUP_NOTE[w && w.group] || '';
+
   function flatItems() {
     return flat.low.filter(r => personOf(r.id)).map(r => ({ ...r, person: personOf(r.id) }));
   }
   function flatMessage() {
     const lines = flatItems().map((r, i) => `${i + 1}. ${r.person.name}: ${r.inReport ? r.calls + ' שיחות' : 'לא הופיע בדוח'}`);
-    return `מוקדנים עם פחות מ-${flat.threshold} שיחות (${lines.length}):\n\n${lines.join('\n')}`;
+    return `מוקדנים עם פחות מ-${flat.threshold} שיחות${groupNote(flat)} (${lines.length}):\n\n${lines.join('\n')}`;
   }
 
   function messageFor(mid) {
     const items = laneItems(mid);
     const t = state.week.threshold;
     const lines = items.map((r, i) => `${i + 1}. ${r.person.name}: ${r.inReport ? r.calls + ' שיחות' : 'לא הופיע בדוח'}`);
-    return `היי ${managerName(mid)},\nאלה המוקדנים שלך השבוע, כולם עם פחות מ-${t} שיחות:\n\n${lines.join('\n')}\n\nכדאי ליצור קשר עם כל אחד מהם השבוע, לשאול מה שלומו ולעזור לו להגיע ליותר שיחות. תודה!`;
+    return `היי ${managerName(mid)},\nאלה המוקדנים שלך השבוע, כולם עם פחות מ-${t} שיחות${groupNote(state.week)}:\n\n${lines.join('\n')}\n\nכדאי ליצור קשר עם כל אחד מהם השבוע, לשאול מה שלומו ולעזור לו להגיע ליותר שיחות. תודה!`;
   }
 
   // ================= רינדור =================
   function render() {
     byId('rosterCount').textContent = state.roster.length;
     byId('threshold').value = state.threshold;
+    document.querySelectorAll('input[name="group"]').forEach(r => r.checked = r.value === (state.group || 'all'));
     if (document.activeElement !== byId('report')) byId('report').value = state.report;
     renderSummary();
     renderBoard();
@@ -854,7 +885,7 @@
     let html = `
       <div class="tally" style="margin-top:28px">
         <b>${lowCount}</b>
-        <p>מוקדנים עם פחות מ-${w.threshold} שיחות, מתוך ${w.rows.length} ברשימה</p>
+        <p>מוקדנים עם פחות מ-${w.threshold} שיחות${groupNote(w)}, מתוך ${w.rows.length} ברשימה</p>
       </div>
       <div class="meta">${missing ? `${missing} מהם לא הופיעו בדוח בכלל. ` : ''}סונן ב${fmtDate(w.at)}</div>`;
     if (w.unknown.length) {
@@ -922,7 +953,7 @@
     wrap.innerHTML = `
       <div class="board-head">
         <div>
-          <h2>כל מי שמתחת ל-${flat.threshold} שיחות</h2>
+          <h2>כל מי שמתחת ל-${flat.threshold} שיחות${groupNote(flat)}</h2>
           <div class="meta" style="margin-top:2px">רשימה אחת בלי חלוקה, מהפחות שיחות ליותר. החלוקה לאחמ"שים לא השתנתה.</div>
         </div>
         <div class="row">
@@ -989,6 +1020,7 @@
 
   byId('runBtn').addEventListener('click', () => runWeek());
   byId('listBtn').addEventListener('click', () => runList());
+  document.querySelectorAll('input[name="group"]').forEach(r => r.addEventListener('change', () => { state.group = r.value; save(); }));
   byId('clearReport').addEventListener('click', () => { byId('report').value = ''; state.report = ''; save(); byId('report').focus(); });
   byId('report').addEventListener('input', () => { state.report = byId('report').value; save(); });
   byId('threshold').addEventListener('change', () => { state.threshold = Math.max(1, parseInt(byId('threshold').value, 10) || 40); save(); });
