@@ -1282,6 +1282,18 @@
       const count = idx(H.count, [...used, date, time]);
       return { headRow: r, region, first, last, name, date, time, count };
     }
+    // בלי שורת כותרות (למשל דוח וואטסאפ): עמודה של שמות ועמודה של מספרים
+    const sample = rows.slice(0, 50).filter(r => r && r.some(v => v != null && v !== ''));
+    const width = Math.max(0, ...sample.map(r => r.length));
+    const share = (c, test) => sample.filter(r => test(r[c])).length / (sample.length || 1);
+    const isNum = (v) => typeof v === 'number' || /^\s*\d+\s*$/.test(cellText(v));
+    const isName = (v) => typeof v === 'string' && /[א-תa-z]/i.test(v);
+    let name = -1, count = -1;
+    for (let c = 0; c < width; c++) {
+      if (name < 0 && share(c, isName) >= 0.8) name = c;
+      else if (count < 0 && share(c, isNum) >= 0.8) count = c;
+    }
+    if (name >= 0 && count >= 0) return { headRow: -1, region: -1, first: -1, last: -1, name, date: -1, time: -1, count };
     return null;
   }
 
