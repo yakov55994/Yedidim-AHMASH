@@ -569,10 +569,15 @@
           <div class="help">מילים כמו "דרום" או "תיכונים" בסוף השם לא מפריעות להתאמה.</div>
         </div>
         <div class="panel">
+          <div class="lbl" id="dirLbl">את מי מחפשים</div>
+          <div class="group two" role="radiogroup" aria-labelledby="dirLbl">
+            <label><input type="radio" name="dir" value="below" /><span>פחות מהסף</span></label>
+            <label><input type="radio" name="dir" value="above" /><span>הסף ומעלה</span></label>
+          </div>
           <div class="threshold">
-            <label for="threshold">מוקדנים עם פחות מ-</label>
+            <label for="threshold" id="thresholdPre">מוקדנים עם פחות מ-</label>
             <input type="number" id="threshold" min="1" class="num" />
-            <span>שיחות</span>
+            <span id="thresholdPost">שיחות</span>
           </div>
           <div class="lbl" id="groupLbl">מי נכנס לסינון</div>
           <div class="group" role="radiogroup" aria-labelledby="groupLbl">
@@ -861,8 +866,11 @@
     // האחמ"שים עצמם מופיעים בדוח, אבל הם לא "שמות לא מוכרים"
     const mgrKeys = new Set(state.managers.map(m => looseKey(m.name)));
     const unknown = entries.filter(e => !matched.has(e) && !mgrKeys.has(looseKey(e.raw))).map(e => ({ name: e.raw, calls: e.calls }));
-    const low = rows.filter(r => r.calls < threshold).sort((a, b) => a.calls - b.calls);
-    return { threshold, group, guides, rows, unknown, low };
+    const dir = state.dir === 'above' ? 'above' : 'below';
+    const low = dir === 'above'
+      ? rows.filter(r => r.calls >= threshold).sort((a, b) => b.calls - a.calls)
+      : rows.filter(r => r.calls < threshold).sort((a, b) => a.calls - b.calls);
+    return { threshold, dir, group, guides, rows, unknown, low };
   }
 
   // רשימה בלי חלוקה: נשארת רק אצלך ולא נשמרת, כדי לא לדרוס את החלוקה המשותפת
@@ -880,10 +888,10 @@
     if (!state.managers.length) { toast('אין אחמ"שים. מוסיפים אותם בלשונית אחמ"שים'); return; }
     const scan = scanReport();
     if (!scan) return;
-    const { threshold, group, guides, rows, unknown, low } = scan;
+    const { threshold, dir, group, guides, rows, unknown, low } = scan;
     flat = null;
     const board = distribute(low, fresh);
-    state.week = { at: Date.now(), threshold, group, guides, rows, board, unknown };
+    state.week = { at: Date.now(), threshold, dir, group, guides, rows, board, unknown };
     save();
     render();
   }
@@ -998,9 +1006,12 @@
     return Object.entries(w.board)
       .filter(([rid, m]) => m === mid && rowOf[rid] && personOf(rid))
       .map(([rid]) => ({ ...rowOf[rid], person: personOf(rid) }))
-      .sort((a, b) => a.calls - b.calls);
+      .sort((a, b) => isAbove(w) ? b.calls - a.calls : a.calls - b.calls);
   }
 
+  // "פחות מ-40 שיחות" או "40 שיחות ומעלה", לפי הכיוון שנבחר בסינון
+  const isAbove = (w) => !!w && w.dir === 'above';
+  const rangeText = (w) => isAbove(w) ? `${w.threshold} שיחות ומעלה` : `פחות מ-${w.threshold} שיחות`;
   const GROUP_NOTE = { teen: 'רק תיכונים', adult: 'בלי תיכונים' };
   const groupNote = (w) => {
     if (!w) return '';
@@ -1025,14 +1036,23 @@
   }
   function flatMessage() {
     const lines = flatItems().map((r, i) => `${i + 1}. ${r.person.name}${tagsText(r.person)}: ${r.inReport ? r.calls + ' שיחות' : 'לא הופיע בדוח'}`);
-    return `מוקדנים עם פחות מ-${flat.threshold} שיחות${groupNote(flat)} (${lines.length}):\n\n${lines.join('\n')}`;
+    return `מוקדנים עם ${rangeText(flat)}${groupNote(flat)} (${lines.length}):\n\n${lines.join('\n')}`;
   }
 
   function messageFor(mid) {
     const items = laneItems(mid);
-    const t = state.week.threshold;
+    const w = state.week;
     const lines = items.map((r, i) => `${i + 1}. ${r.person.name}${tagsText(r.person)}: ${r.inReport ? r.calls + ' שיחות' : 'לא הופיע בדוח'}`);
-    return `היי ${managerName(mid)},\nאלה המוקדנים שלך השבוע, כולם עם פחות מ-${t} שיחות${groupNote(state.week)}:\n\n${lines.join('\n')}\n\nכדאי ליצור קשר עם כל אחד מהם השבוע, לשאול מה שלומו ולעזור לו להגיע ליותר שיחות. תודה!`;
+    const ask = isAbove(w)
+      ? 'כדאי ליצור קשר עם כל אחד מהם השבוע, להגיד תודה ולפרגן על ההשקעה. תודה!'
+      : 'כדאי ליצור קשר עם כל אחד מהם השבוע, לשאול מה שלומו ולעזור לו להגיע ליותר שיחות. תודה!';
+    return `היי ${managerName(mid)},\nאלה המוקדנים שלך השבוע, כולם עם ${rangeText(w)}${groupNote(w)}:\n\n${lines.join('\n')}\n\n${ask}`;
+  }
+
+  function syncDirLabel() {
+    const above = state.dir === 'above';
+    byId('thresholdPre').textContent = above ? 'מוקדנים עם' : 'מוקדנים עם פחות מ-';
+    byId('thresholdPost').textContent = above ? 'שיחות ומעלה' : 'שיחות';
   }
 
   // ================= רינדור =================
@@ -1041,6 +1061,8 @@
     byId('threshold').value = state.threshold;
     document.querySelectorAll('input[name="group"]').forEach(r => r.checked = r.value === (state.group || 'all'));
     document.querySelectorAll('input[name="guides"]').forEach(r => r.checked = r.value === (state.guides || 'with'));
+    document.querySelectorAll('input[name="dir"]').forEach(r => r.checked = r.value === (state.dir || 'below'));
+    syncDirLabel();
     if (document.activeElement !== byId('report')) byId('report').value = state.report;
     renderSummary();
     renderBoard();
@@ -1057,7 +1079,7 @@
     let html = `
       <div class="tally" style="margin-top:28px">
         <b>${lowCount}</b>
-        <p>מוקדנים עם פחות מ-${w.threshold} שיחות${groupNote(w)}, מתוך ${w.rows.length} ברשימה</p>
+        <p>מוקדנים עם ${rangeText(w)}${groupNote(w)}, מתוך ${w.rows.length} ברשימה</p>
       </div>
       <div class="meta">${missing ? `${missing} מהם לא הופיעו בדוח בכלל. ` : ''}סונן ב${fmtDate(w.at)}</div>`;
     if (w.unknown.length) {
@@ -1124,12 +1146,12 @@
             <span class="who">${esc(r.person.name)}${tagsHtml(r.person)}</span>
             ${r.inReport ? `<span class="calls">${r.calls}</span>` : `<span class="calls zero">לא בדוח</span>`}
           </li>`).join('')}</ol>`
-      : `<div class="lane-empty">אין מוקדנים מתחת ל-${flat.threshold} שיחות.</div>`;
+      : `<div class="lane-empty">אין מוקדנים עם ${rangeText(flat)}.</div>`;
     wrap.innerHTML = `
       <div class="board-head">
         <div>
-          <h2>כל מי שמתחת ל-${flat.threshold} שיחות${groupNote(flat)}</h2>
-          <div class="meta" style="margin-top:2px">רשימה אחת בלי חלוקה, מהפחות שיחות ליותר. החלוקה לאחמ"שים לא השתנתה.</div>
+          <h2>כל מי שעם ${rangeText(flat)}${groupNote(flat)}</h2>
+          <div class="meta" style="margin-top:2px">רשימה אחת בלי חלוקה, ${isAbove(flat) ? 'מהכי הרבה שיחות לפחות' : 'מהפחות שיחות ליותר'}. החלוקה לאחמ"שים לא השתנתה.</div>
         </div>
         <div class="row">
           ${state.week ? `<button class="btn quiet" id="backToBoard"><i class="ph ph-squares-four"></i>חזרה לחלוקה</button>` : ''}
@@ -1398,6 +1420,7 @@
   byId('listBtn').addEventListener('click', () => runList());
   document.querySelectorAll('input[name="group"]').forEach(r => r.addEventListener('change', () => { state.group = r.value; save(); }));
   document.querySelectorAll('input[name="guides"]').forEach(r => r.addEventListener('change', () => { state.guides = r.value; save(); }));
+  document.querySelectorAll('input[name="dir"]').forEach(r => r.addEventListener('change', () => { state.dir = r.value; syncDirLabel(); save(); }));
   byId('clearReport').addEventListener('click', () => { byId('report').value = ''; state.report = ''; save(); byId('report').focus(); });
   byId('report').addEventListener('input', () => { state.report = byId('report').value; save(); });
   byId('threshold').addEventListener('change', () => { state.threshold = Math.max(1, parseInt(byId('threshold').value, 10) || 40); save(); });
